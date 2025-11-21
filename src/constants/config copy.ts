@@ -22,7 +22,7 @@ const widgetConfig = {
     oldAgentName: scriptTag?.getAttribute("data-agent-name") || "Isabella",
     oldAgentID: scriptTag?.getAttribute("data-agent-id") || "agent_ce01bdc30264329416220de0f7",
     transferAgentName: scriptTag?.getAttribute("data-transfer-agent-name") || "Noah",
-    apiKey:'key_3b3cfc3d7881e2a6711bbece13d1',
+    apiKey:'1b07e2d1-c19f-44de-a638-303e755e1477',
     textOne:'Speak With',
     divId: scriptTag?.getAttribute("data-div-id") || "ConnexUSVRep-chat",
     onSite: allowedOrigins.includes(origin),
