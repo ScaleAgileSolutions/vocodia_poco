@@ -10,7 +10,7 @@ class AIAgentSDK {
     constructor(options = {}) {
         // Configuration
         this.agentId = options.agentId;
-        this.serverUrl = options.serverUrl || 'https://portal.theconnexus.ai';
+        this.serverUrl = options.serverUrl || 'https://portal.theconnexus.ai/api';
         this.livekitUrl = options.livekitUrl || 'wss://webrtc.theconnexus.ai';
         this.mode = options.mode || 'voice'; // 'voice' or 'text'
         
