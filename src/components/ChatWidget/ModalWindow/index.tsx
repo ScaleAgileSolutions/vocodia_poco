@@ -146,8 +146,7 @@ function ModalWindow(props: ModalWindowProps) {
           }
         }
       };
-      // Make API call to create web call
-     
+      // Make API call to create web call changes 
       const response = await fetch("https://api.retellai.com/v2/create-web-call", {
         method: "POST",
         headers: {
