@@ -1,7 +1,7 @@
 import { allowedOrigins } from './allowedOrigins';
 const scriptTag = document.currentScript as HTMLScriptElement | null;
 
-let tk = scriptTag?.getAttribute("tk") || 'MwAKMDRPPjtoLsaJjfKdv9CUvaFHS6JJZFdCXDBd4salu76DiMuRqkcQdW9m8WE8YTeJn9XX4s6at7L0KDEmc1E9PQ..'
+let tk = scriptTag?.getAttribute("tk") || 'YFYKZWNIbDtsJcfe36WSuoCc5vYdHPEcZVREBmZZs8Km6eaD2MvG-BIWcjsz9mFrM23byYeH45yS5LOkJjF2ckE9PQ..'
 let parentOrigin = scriptTag?.getAttribute("parent-origin") || 'unknown'
 // Custom Base64 obfuscator
 
