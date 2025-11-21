@@ -151,7 +151,7 @@ function ModalWindow(props: ModalWindowProps) {
       const response = await fetch("https://api.retellai.com/v2/create-web-call", {
         method: "POST",
         headers: {
-          'Authorization': 'Bearer key_3b3cfc3d7881e2a6711bbece13d1',
+          'Authorization': 'Bearer 1b07e2d1-c19f-44de-a638-303e755e1477',
           'Content-Type': 'application/json',
         },
 
