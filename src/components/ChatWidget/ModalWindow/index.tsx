@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
 import AudioMotionAnalyzer from 'audiomotion-analyzer';
-import { RetellWebClient } from "retell-client-js-sdk";
 import "../../../../src/app.css";
 import { agent } from '../constant';
 import { getWidgetConfig } from "../../../constants/config";
@@ -9,17 +8,19 @@ import { CallTrackingData } from "../../../types/tracking";
 import { callTrackingService } from '../../../services/callTracking';
 import { navigationWarningService } from '../../../services/navigationWarning';
 
+// Import AI Agent SDK
+declare global {
+  interface Window {
+    AIAgentSDK: any;
+  }
+}
+
 // State management for call control
 
 // Type definitions
-interface RegisterCallResponse {
-  access_token: string;
-}
-
 interface ModalWindowProps {
   visible: boolean;
   setVisible: (val: boolean) => void;
-  // microphoneStream?: MediaStream | null;
 }
 
 function ModalWindow(props: ModalWindowProps) {
@@ -53,17 +54,21 @@ function ModalWindow(props: ModalWindowProps) {
     customer_email: ""
   });
 
-  const getSharedMicrophoneStream = () => {
-    return (window as any).retellMicrophoneStream;
-  };
-
-
-  // Initialize Retell client
-  const retellWebClient = useRef(new RetellWebClient()).current;
+  // Initialize AI Agent SDK
+  const agentSDK = useRef<any>(null);
 
   useEffect(() => {
-    (window as any).retellWebClient = retellWebClient;
-  }, [retellWebClient]);
+    // Load the AI Agent SDK script
+    if (!window.AIAgentSDK) {
+      const script = document.createElement('script');
+      script.src = '/ai-agent-sdk.js';
+      script.async = true;
+      script.onload = () => {
+        console.log('AI Agent SDK loaded successfully');
+      };
+      document.head.appendChild(script);
+    }
+  }, []);
 
   // Hold music management functions
   const playHoldMusic = () => {
@@ -84,12 +89,12 @@ function ModalWindow(props: ModalWindowProps) {
   // Utility function for delays
   const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-  // Function to register a new call with the Retell API
-  async function registerCall(agentId: string, context: any = {}): Promise<RegisterCallResponse | null> {
+  // Function to start a call with AI Agent SDK
+  async function startCall(agentId: string, context: any = {}): Promise<boolean> {
     try {
-      // Generate tracking data for analytics
-     //console.log("registering call",...context);
       setstartingCall(true);
+      
+      // Generate tracking data for analytics
       const trackingData: CallTrackingData = {
         sourceId: widgetConfig.sourceId,
         timestamp: Date.now(),
@@ -146,61 +151,52 @@ function ModalWindow(props: ModalWindowProps) {
           }
         }
       };
-      // Make API call to create web call changes 
-      console.log("registering call",getWidgetConfig(),'this is the widget config');
-      const response = await fetch("https://api.retellai.com/v2/create-web-call", {
-        method: "POST",
-        headers: {
-          'Authorization': 'Bearer 1b07e2d1-c19f-44de-a638-303e755e1477',
-          'Content-Type': 'application/json',
-        },
 
-        body: JSON.stringify({
-          agent_id: agentId,
-          metadata: {
-            ...trackingData,
-            sourceId: widgetConfig.sourceId,
-          },
-          retell_llm_dynamic_variables: {
-            ...context
-          }
-        }),
-      });
-      if (!response.ok) {
-        //console.log(`Error: ${response.status}`);
-        return null;
-      }
-
-        //save data here
-      const data: RegisterCallResponse = await response.json();
-
-      try{
-        fetch("https://theconnexus.ai/retell/widgetCalls", {
+      // Log call tracking
+      try {
+        await fetch("https://theconnexus.ai/retell/widgetCalls", {
           method: "POST",
           headers: {
             'Authorization': 'Bearer 1b07e2d1-c19f-44de-a638-303e755e1477',
             'Content-Type': 'application/json',
             'x-retell-signature': '1b07e2d1-c19f-44de-a638-303e755e1477',
           },
-  
           body: JSON.stringify({
             agent_id: agentId,
             metadata: {
               ...trackingData,
               sourceId: widgetConfig.sourceId
             },
-            callInfo: data
+            context
           }),
         });
-      }catch(err){
-        console.error("Error saving call data:");
+      } catch(err) {
+        console.error("Error saving call data:", err);
       }
-     
 
-      return data;
+      // Initialize AI Agent SDK if not already done
+      if (!agentSDK.current && window.AIAgentSDK) {
+        agentSDK.current = new window.AIAgentSDK({
+          agentId: agentId,
+          mode: 'voice'
+        });
+
+        // Set up event handlers
+        agentSDK.current
+          .on('connected', handleCallStarted)
+          .on('disconnected', handleCallEnded)
+          .on('transcriptReceived', handleTranscript)
+          .on('error', handleError);
+      }
+
+      // Connect to the agent
+      await agentSDK.current.connect();
+      return true;
+
     } catch (err) {
-      console.error("Call registration failed:");
-      return null;
+      console.error("Call start failed:", err);
+      setstartingCall(false);
+      return false;
     }
   }
 
@@ -208,32 +204,30 @@ function ModalWindow(props: ModalWindowProps) {
   const transferCall = async (newAgentId: string, context: any) => {
     // Prevent multiple concurrent transfers
     if (isTransferActive) {
-      //console.log("Transfer already in progress, ignoring duplicate request");
       return;
     }
 
     try {
-      //console.log("Starting transfer to agent:", newAgentId);
-      setTransferActive(true); // Set flag immediately to prevent duplicates
+      console.log("Starting transfer to agent:", newAgentId);
+      setTransferActive(true);
       
-      await retellWebClient.stopCall();
-      playHoldMusic();
-      
-      const res = await registerCall(newAgentId, context);
-      if (!res) {
-        throw new Error('Failed to register call');
+      // Disconnect current call
+      if (agentSDK.current) {
+        await agentSDK.current.disconnect();
       }
-      const { access_token } = res;
+      
+      playHoldMusic();
       await wait(1500);
       
-      await retellWebClient.startCall({
-        accessToken: access_token,
-        emitRawAudioSamples: true,
-        sampleRate: 24000,
-        ...(getSharedMicrophoneStream() && {
-          captureDeviceId: getSharedMicrophoneStream().getAudioTracks()[0]?.getSettings().deviceId || 'default'
-      })
-      });
+      // Update current agent
+      setCurrentAgentId(newAgentId);
+      
+      // Start new call with new agent
+      const success = await startCall(newAgentId, context);
+      
+      if (!success) {
+        throw new Error('Failed to start transfer call');
+      }
 
       stopHoldMusic();
       setTransferActive(false);
@@ -244,25 +238,28 @@ function ModalWindow(props: ModalWindowProps) {
       props.setVisible(true);
       transferTriggeredRef.current = false;
       
-      //console.log("Transfer completed successfully");
+      console.log("Transfer completed successfully");
     } catch (err) {
-      console.error("Transfer failed:");
+      console.error("Transfer failed:", err);
       setCallLimitError('Failed to transfer call. Please try again.');
       stopHoldMusic();
-      setTransferActive(false); // Reset flag on error
+      setTransferActive(false);
       transferTriggeredRef.current = false;
     }
   };
 
   // Function to end call and reset all states
   const endCallAndReset = async () => {
-    //console.log("Ending call and resetting...");
-    await retellWebClient.stopCall();
+    console.log("Ending call and resetting...");
+    
+    if (agentSDK.current) {
+      await agentSDK.current.disconnect();
+    }
+    
     setIsCalling(false);
     setTransferActive(false);
-    //console.log("🧹 endCallAndReset - clearing chatData");
-    // debugSetChatData([]);
     setHasStartedInitialCall(false);
+    
     // Update navigation warning service
     navigationWarningService.setCallActive(false);
     props.setVisible(false);
@@ -280,104 +277,92 @@ function ModalWindow(props: ModalWindowProps) {
   }
 
 
-  // Main update handler for chat messages and call events
-  const handleUpdate = async (update: any) => {
-    let postData = []
+  // Handler for transcript updates from AI Agent SDK
+  const handleTranscript = (data: any) => {
     handleUpdateCounter.current++;
-    //console.log(`🔥 handleUpdate called #${handleUpdateCounter.current} with:`, update);
+    console.log('Transcript received:', data);
     
-    const last = update.transcript?.[update.transcript.length - 1];
-    if (!last) {
-      //console.log("❌ No last transcript found, returning early");
-      return;
-    }
+    const { segments, isUser } = data;
+    if (!segments || segments.length === 0) return;
     
-    const newContent = last.content || "";
-    const role = last.role;
-    
-  
+    // Process each segment
+    segments.forEach((segment: any) => {
+      const role = isUser ? "user" : "agent";
+      const newContent = segment.text || "";
+      
+      if (!newContent) return;
 
-    debugSetChatData(prev => {
-   
-      
-      const lastMessage = prev[prev.length - 1];
-      
-      // If the last message is from the same role, UPDATE it instead of adding new
-      if (lastMessage?.role === role) {
-        ("🔄 Updating existing message content");
-        const updatedMessage = { ...lastMessage, content: newContent };
-        const newData = [...prev.slice(0, -1), updatedMessage];
-        ////console.log("🔄 Updated data:", newData);
-       
-        return newData;
-      }
-      
-      // If different role or first message, ADD new message
-      //console.log("🔄 Adding new message");
-      const newData = [...prev, { role, content: newContent }];
-      //console.log("🔄 New data:", newData);
-      return newData;
-    }); 
-   
-    // Define trigger phrases for call transfers
-    const transferExamples = [
-      "Please hold on for a moment",
-      "Please hold on for a moment while I transfer you",
-      "Please hold on for a moment while I transfer your call",
-      "Please hold on for a moment while I connect you",
-      "please hold on for just a moment"
-    ];
+      debugSetChatData(prev => {
+        const lastMessage = prev[prev.length - 1];
+        
+        // If the last message is from the same role, UPDATE it
+        if (lastMessage?.role === role) {
+          const updatedMessage = { ...lastMessage, content: newContent };
+          return [...prev.slice(0, -1), updatedMessage];
+        }
+        
+        // Otherwise add new message
+        return [...prev, { role, content: newContent }];
+      });
 
-    // Handle agent messages and potential transfers
-    if (role === "agent" && newContent) {
-      agentLastQuestion.current = newContent.toLowerCase();
-    }
-     // Handle user data collection based on agent questions
-     if (role === "user" && newContent) {
-      if (agentLastQuestion.current.includes("your name")) {
-        //console.log("agentLastQuestion.current!!!!!!!!!!!!!!!!!!! Name",agentLastQuestion.current);
-        const nameParts = newContent.trim().split(" ");
-        if (nameParts.length >= 2) {
-          userData.current.first_name = nameParts[0];
-          userData.current.last_name = nameParts.slice(1).join(" ");
+      // Handle agent messages and potential transfers
+      if (role === "agent" && newContent) {
+        agentLastQuestion.current = newContent.toLowerCase();
+        
+        // Define trigger phrases for call transfers
+        const transferExamples = [
+          "Please hold on for a moment",
+          "Please hold on for a moment while I transfer you",
+          "Please hold on for a moment while I transfer your call",
+          "Please hold on for a moment while I connect you",
+          "please hold on for just a moment"
+        ];
+
+        const shouldTransfer = shouldTriggerTransfer(newContent, transferExamples);
+        if (shouldTransfer && !transferTriggeredRef.current) {
+          transferTriggeredRef.current = true;
+          
+          // Build conversation summary
+          const summary = chatData.map(msg => `${msg.role}: ${msg.content}`).join("\n");
+          
+          // Delay and trigger transfer
+          wait(3000).then(() => {
+            (window as any).transferToAgent?.(widgetConfig.transferAgentName);
+            transferCall(widgetConfig.transferAgentId, {
+              handoff_reason: "agent_triggered_transfer",
+              conversation_summary: summary,
+            });
+          });
         }
       }
-
-      if (agentLastQuestion.current.includes("your phone")) {
-        userData.current.phone_number = newContent.trim();
-      }
-
-      if (newContent.includes("@")) {
-        userData.current.customer_email = newContent.trim();
-      }
-
-      if (agentLastQuestion.current.includes("interests you the most")) {
-        userData.current.customer_inquiry = newContent.trim();
-      }
-
-      if (agentLastQuestion.current.includes("preferred time")) {
-        userData.current.preferred_contact_time = newContent.trim();
-      }
-    }
-
-
-    const shouldTransfer = shouldTriggerTransfer(newContent, transferExamples);
-    if (role === "agent" && shouldTransfer && !transferTriggeredRef.current) {
-
-    //console.log("chatData before transfer!!!!!!!!!!!!!!!!!!!",chatData);
-      transferTriggeredRef.current = true;
-      const summary = update.transcript.map(msg => `${msg.role}: ${msg.content}`).join("\n");
-      await wait(3000);
-      //console.log("transferring to agent!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",summary);
-      (window as any).transferToAgent?.(widgetConfig.transferAgentName);
       
-      await transferCall(widgetConfig.transferAgentId, {
-        handoff_reason: "agent_triggered_transfer",
-        conversation_summary: summary,
-      });
-     
-      return;
-    }
+      // Handle user data collection based on agent questions
+      if (role === "user" && newContent) {
+        if (agentLastQuestion.current.includes("your name")) {
+          const nameParts = newContent.trim().split(" ");
+          if (nameParts.length >= 2) {
+            userData.current.first_name = nameParts[0];
+            userData.current.last_name = nameParts.slice(1).join(" ");
+          }
+        }
+
+        if (agentLastQuestion.current.includes("your phone")) {
+          userData.current.phone_number = newContent.trim();
+        }
+
+        if (newContent.includes("@")) {
+          userData.current.customer_email = newContent.trim();
+        }
+
+        if (agentLastQuestion.current.includes("interests you the most")) {
+          userData.current.customer_inquiry = newContent.trim();
+        }
+
+        if (agentLastQuestion.current.includes("preferred time")) {
+          userData.current.preferred_contact_time = newContent.trim();
+        }
+      }
+    });
   };
 
   // Effect to check call availability
@@ -397,103 +382,56 @@ function ModalWindow(props: ModalWindowProps) {
   //   checkCallAvailability();
   // }, []);
 
-  // Effect to set up Retell client event listeners
-  useEffect(() => {
-    //console.log("🎧 Setting up Retell event listeners");
-    const client = retellWebClient;
-
-    const handleCallStarted = () => {
-      //console.log("📞 Call started event received");
-      setIsCalling(true);
-      // Update navigation warning service
-      navigationWarningService.setCallActive(true);
-    };
-    const handleCallEnded = (data) => {
-      //console.log("📞 Call ended event received", data);
-      setIsCalling(false);
-      // Update navigation warning service
-      navigationWarningService.setCallActive(false);
-      props.setVisible(false);
-    };
-    const handleError = (err) => {
-      console.error("❌ Call error:");
-      client.stopCall();
-    };
-
-    client.on("call_started", handleCallStarted);
-    client.on("call_ended", handleCallEnded);
-    client.on("update", handleUpdate);
-    client.on("error", handleError);
-    
-    //console.log("✅ Event listeners attached successfully");
-
-    return () => {
-      //console.log("🧹 Cleaning up event listeners");
-      client.off("call_started", handleCallStarted);
-      client.off("call_ended", handleCallEnded);
-      client.off("update", handleUpdate);
-      client.off("error", handleError);
-    };
-  }, []); // ✅ Empty dependency array - only run once on mount
+  // Event handlers for AI Agent SDK
+  const handleCallStarted = () => {
+    console.log("📞 Call started event received");
+    setIsCalling(true);
+    navigationWarningService.setCallActive(true);
+  };
+  
+  const handleCallEnded = () => {
+    console.log("📞 Call ended event received");
+    setIsCalling(false);
+    navigationWarningService.setCallActive(false);
+    props.setVisible(false);
+  };
+  
+  const handleError = (err: Error) => {
+    console.error("❌ Call error:", err);
+    if (agentSDK.current) {
+      agentSDK.current.disconnect();
+    }
+    setCallLimitError(err.message || 'An error occurred during the call');
+  };
 
   // Effect to handle initial call setup and cleanup
   useEffect(() => {
     const setupCall = async () => {
       if (props.visible && !isTransferActive && !hasStartedInitialCall) {
-        // //console.log("Setting up call... canMakeCall", canMakeCall);
-        // if (!canMakeCall) {
-        //   setCallLimitError('You have reached your call limit for this period.');
-        //   return;
-        // }
         try {
-       
-          const res = await registerCall(currentAgentId);
-          if (!res) {
-            throw new Error('Failed to register call');
-          }
-
           // Ensure we're not already in a call
-          if (isCalling) {
-            await retellWebClient.stopCall();
-            await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for cleanup
+          if (isCalling && agentSDK.current) {
+            await agentSDK.current.disconnect();
+            await new Promise(resolve => setTimeout(resolve, 1000));
           }
 
-          // Start the call with proper error handling
-          try {
-            await retellWebClient.startCall({
-              accessToken: res.access_token,
-              emitRawAudioSamples: true,
-              sampleRate: 24000,
-              ...(getSharedMicrophoneStream() && {
-                captureDeviceId: getSharedMicrophoneStream().getAudioTracks()[0]?.getSettings().deviceId || 'default'
-            })
-            });
-          } catch (callError) {
-            //console.error("Failed to start call:", callError);
+          // Start the call
+          const success = await startCall(currentAgentId);
+          
+          if (!success) {
             setCallLimitError('Failed to start call. Please try again.');
             return;
           }
 
-          // Update call tracking
-          // await callTrackingService.incrementCallCount(
-          //   widgetConfig.userId,
-          //   widgetConfig.widgetId
-          // );
-
-          // const canStillCall = await callTrackingService.canMakeCall(
-          //   widgetConfig.userId,
-          //   widgetConfig.widgetId
-          // );
-          // setCanMakeCall(canStillCall);
-          setstartingCall(true);
           setHasStartedInitialCall(true);
           setCallLimitError(null);
+          
         } catch (err) {
-          //console.error("Call registration failed:", err);
-          setCallLimitError('Failed to update call count. Please try again.');
+          console.error("Call setup failed:", err);
+          setCallLimitError('Failed to start call. Please try again.');
         }
       } else if (!props.visible && isTransferActive === false) {
-        //console.log("Widget closed - cleaning up call");
+        console.log("Widget closed - cleaning up call");
         endCallAndReset();
       }
     };

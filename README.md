@@ -1,7 +1,7 @@
 
 # React Chat Widget
 
-A customizable chat widget that integrates with Retell AI for real-time voice conversations.
+A customizable chat widget that integrates with AI Agent SDK for real-time voice and text conversations.
 
 ## License
 
@@ -23,10 +23,11 @@ A customizable chat widget that integrates with Retell AI for real-time voice co
 2. **Initialize the widget:**
    ```js
    window.ChatWidget.init({
-     apiKey: 'your-retell-api-key',
      agentId: 'your-agent-id',
      agentName: 'Agent Name',
      sourceId: 'your-source-id',
+     serverUrl: 'https://agent.vocode.dev',
+     mode: 'voice', // 'voice' or 'text'
      onSite: false, // Set to true for internal testing
      userId: 'optional-user-id',
      widgetId: 'optional-widget-id'
@@ -37,10 +38,12 @@ A customizable chat widget that integrates with Retell AI for real-time voice co
 
 | Option      | Type    | Required | Description                              |
 |-------------|---------|----------|------------------------------------------|
-| apiKey      | string  | Yes      | Your Retell AI API key                   |
 | agentId     | string  | Yes      | ID of the agent to connect to            |
 | agentName   | string  | Yes      | Display name of the agent                |
 | sourceId    | string  | Yes      | Identifier for the source of the call    |
+| serverUrl   | string  | No       | AI Agent SDK server URL (default: https://agent.vocode.dev) |
+| livekitUrl  | string  | No       | LiveKit server URL (default: wss://callcenter-livekit.vocode.dev) |
+| mode        | string  | No       | Connection mode: 'voice' or 'text' (default: 'voice') |
 | onSite      | boolean | No       | Set to true for internal testing         |
 | userId      | string  | No       | Optional user identifier                 |
 | widgetId    | string  | No       | Optional widget identifier               |
@@ -68,10 +71,11 @@ A customizable chat widget that integrates with Retell AI for real-time voice co
   - Check browser console for errors.
 
 - **Call Connection Issues**
-  - Verify API key and agent ID.
+  - Verify agent ID configuration.
   - Check microphone permissions.
   - Ensure stable internet connection.
   - Check browser compatibility.
+  - Verify server URLs are accessible.
 
 - **Transfer Not Working**
   - Verify transfer agent ID is configured.
@@ -109,13 +113,15 @@ A customizable chat widget that integrates with Retell AI for real-time voice co
 
 ### Recent Updates
 
-- Added call transfer functionality
-- Implemented hold music during transfers
+- Migrated from Retell SDK to AI Agent SDK
+- Added support for voice and text modes
+- Improved call transfer functionality with hold music
 - Enhanced user data collection
-- Added connection state handling
+- Better connection state handling
 - Improved error handling and recovery
-- Added call tracking and analytics
+- Comprehensive call tracking and analytics
 - Enhanced mobile responsiveness
+- Dynamic LiveKit client loading
 
 ---
 
@@ -131,7 +137,8 @@ A customizable chat widget that integrates with Retell AI for real-time voice co
 ## Dependencies
 
 - React 19.0.0
-- Retell Web Client SDK 2.0.5
+- AI Agent SDK (custom)
+- LiveKit Client (loaded dynamically)
 - AudioMotion Analyzer 4.5.0
 - Bootstrap 5.3.3
 - Fuse.js 7.1.0
@@ -158,11 +165,13 @@ A customizable chat widget that integrates with Retell AI for real-time voice co
 
 ## Security Considerations
 
-- Never expose API keys in client-side code.
+- Never expose sensitive credentials in client-side code.
 - Use environment variables for sensitive data.
-- Implement proper key rotation.
-- Implement proper data encryption and privacy.
+- Implement proper credential rotation.
+- Ensure proper data encryption and privacy.
 - Configure proper CORS headers and restrict allowed origins.
+- Validate and sanitize all user inputs.
+- Use secure WebSocket connections (WSS) for real-time communication.
 
 ---
 

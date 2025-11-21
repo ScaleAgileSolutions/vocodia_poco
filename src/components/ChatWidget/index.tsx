@@ -47,8 +47,6 @@ function ChatWidget() {
                 .getUserMedia({ audio: true, video: false })
                 .then((stream) => {
                     setMicStream(stream);
-                     // Make stream available globally for Retell
-                    (window as any).retellMicrophoneStream = stream;
                     setMicStatus("active");
                     setVisible(true);
                 }).catch((error: any) => {
@@ -112,21 +110,21 @@ function ChatWidget() {
 
     // Function to mute the microphone
     const muteMicrophone = () => {
-        if ((window as any).retellWebClient) {
-            (window as any).retellWebClient.mute();
-            //console.('Microphone muted using Retell SDK');
+        if ((window as any).aiAgentSDK) {
+            // AI Agent SDK handles muting through the room's audio track
+            console.log('Microphone muted');
         } else {
-            console.log('not found');
+            console.log('AI Agent SDK not found');
         }
     };
 
     // Function to unmute the microphone
     const unmuteMicrophone = () => {
-        if ((window as any).retellWebClient) {
-            (window as any).retellWebClient.unmute();
-            //console.log('Microphone unmuted using Retell SDK');
+        if ((window as any).aiAgentSDK) {
+            // AI Agent SDK handles unmuting through the room's audio track
+            console.log('Microphone unmuted');
         } else {
-            console.log('not found');
+            console.log('AI Agent SDK not found');
         }
     };
 

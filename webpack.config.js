@@ -63,6 +63,10 @@ module.exports = {
         {
           from: 'public/chat-widget-wrapper.html',
           to: 'chat-widget-wrapper.html'
+        },
+        {
+          from: 'public/ai-agent-sdk.js',
+          to: 'ai-agent-sdk.js'
         }
       ]
     }),
