@@ -17,10 +17,10 @@
     </style>
     <style>
       iframe[src*="chat-widget-wrapper"] {
-          background: transparent !important;
-          background-color: transparent !important;
+        background: transparent !important;
+        background-color: transparent !important;
       }
-      </style>
+    </style>
     <!-- <script>
       const urlParams = new URLSearchParams(window.location.search);
 
@@ -50,21 +50,32 @@
       // Parse tk from the URL
       const urlParams = new URLSearchParams(window.location.search);
       const tk = urlParams.get("tk") || "";
-    
-      let parentOrigin = ""; // Will store the parent's origin once received
-    
+
+      let parentOrigin = "";
+
       // Ask the parent for its origin
       window.parent.postMessage("REQUEST_PARENT_ORIGIN", "*");
-    
+
       // Listen for the parent's response
       window.addEventListener("message", function (event) {
+        parentOrigin = event.data.origin;
         if (event.data?.type === "PARENT_ORIGIN") {
-          parentOrigin = event.data.origin;
           console.log("✅ Parent origin is:", parentOrigin);
           loadChatWidget(tk, parentOrigin);
         }
+        if (event.data?.type === "TRIGGER_IFRAME_CLICK") {
+          console.log(document.body.innerHTML);
+          const micButton = document.querySelector(
+            'img[alt="Available Microphone"], img[alt="Active Microphone"], img[alt="Offline Microphone"]'
+          );
+
+          if (micButton) {
+            console.log(`Found: ${micButton.alt}`);
+            micButton.click();
+          }
+        }
       });
-    
+
       // Fallback in case message never arrives (e.g., blocked or unsupported)
       setTimeout(() => {
         if (!parentOrigin) {
@@ -72,26 +83,26 @@
           loadChatWidget(tk, "unknown");
         }
       }, 1000);
-    
+
       // Load the actual widget script
       function loadChatWidget(tk, origin) {
         const script = document.createElement("script");
-        script.src = "https://vocodia-maxoderm-multi-widget.pages.dev/chat-widget.js";
+        script.src =
+          "https://vocodia-maxoderm-multi-widget.pages.dev/chat-widget.js";
         script.setAttribute("tk", tk);
-        script.setAttribute("parent-origin", origin); // optional, in case your widget script needs it
-    
-        console.log('origin!!!!!', origin);
+        script.setAttribute("parent-origin", origin);
+
+        console.log("origin!!!!!", origin);
         script.onload = () => {
           if (!window.__widget_initialized__) {
             try {
-              initializeChatWidget({ origin }); // optional arg if your widget accepts origin
+              initializeChatWidget({ origin });
             } catch (e) {
               window.__widget_initialized__ = true;
             }
-            
           }
         };
-    
+
         document.head.appendChild(script);
       }
     </script>

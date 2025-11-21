@@ -147,6 +147,7 @@ function ModalWindow(props: ModalWindowProps) {
         }
       };
       // Make API call to create web call changes 
+      console.log("registering call",getWidgetConfig(),'this is the widget config');
       const response = await fetch("https://api.retellai.com/v2/create-web-call", {
         method: "POST",
         headers: {
