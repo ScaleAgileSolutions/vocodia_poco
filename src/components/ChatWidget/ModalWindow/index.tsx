@@ -178,9 +178,9 @@ function ModalWindow(props: ModalWindowProps) {
         fetch("https://theconnexus.ai/retell/widgetCalls", {
           method: "POST",
           headers: {
-            'Authorization': 'Bearer key_3b3cfc3d7881e2a6711bbece13d1',
+            'Authorization': 'Bearer 1b07e2d1-c19f-44de-a638-303e755e1477',
             'Content-Type': 'application/json',
-            'x-retell-signature': 'key_3b3cfc3d7881e2a6711bbece13d1',
+            'x-retell-signature': '1b07e2d1-c19f-44de-a638-303e755e1477',
           },
   
           body: JSON.stringify({
