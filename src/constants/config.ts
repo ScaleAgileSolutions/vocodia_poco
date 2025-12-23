@@ -20,8 +20,8 @@ const fetchWidgetConfig = async () => {
     }
     // console.log(response,'response.data')
     let data = await response.json();
-    data.data.parentOrigin = parentOrigin;
-    // data.data.parentOrigin = 'http://localhost:4000';
+    // data.data.parentOrigin = parentOrigin;
+    data.data.parentOrigin = 'http://localhost:4000';
     return data;
   
   } catch (error) {

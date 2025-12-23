@@ -15,6 +15,40 @@ import {agent} from './constant'
 import {getWidgetConfig} from "../../constants/config";
 
 import 'bootstrap/dist/css/bootstrap.min.css';
+
+// Add CSS styles for the widget animations
+const widgetStyles = `
+  @keyframes activeRingPulse {
+    0%, 100% {
+      box-shadow: 
+        0 0 0 8px #10B981,
+        0 0 0 20px rgba(16, 185, 129, 0.3),
+        0 6px 25px rgba(0, 0, 0, 0.2);
+    }
+    50% {
+      box-shadow: 
+        0 0 0 8px #10B981,
+        0 0 0 32px transparent,
+        0 6px 25px rgba(0, 0, 0, 0.2);
+    }
+  }
+
+  @keyframes endingRingPulse {
+    0%, 100% {
+      box-shadow: 
+        0 0 0 8px #DC2626,
+        0 0 0 12px rgba(220, 38, 38, 0.3),
+        0 6px 25px rgba(0, 0, 0, 0.2);
+    }
+    50% {
+      box-shadow: 
+        0 0 0 8px #DC2626,
+        0 0 0 16px transparent,
+        0 6px 25px rgba(0, 0, 0, 0.2);
+    }
+  }
+`;
+
 function ChatWidget() {
     // state variable to track if widget button was hovered on
     const [hovered, setHovered] = useState(false);
@@ -27,6 +61,7 @@ function ChatWidget() {
     const [currentStage, setCurrentStage] = useState('Speak With');
     const [callState, setCallState] = useState<'inactive' | 'active' | 'offline'>('inactive');
     const [micStream, setMicStream] = useState<MediaStream | null>(null);
+    const [ending, setEnding] = useState(false);
 
     // use effect listener to check if the mouse was cliked outside the window 
     useEffect(() => {
@@ -162,207 +197,123 @@ function ChatWidget() {
         }
     };
 
+    // Get widget configuration for text content and agent image
+    const widgetConfig = getWidgetConfig();
+    // console.log(widgetConfig,'widgetConfig-------------->')
+    const textContent = widgetConfig.agentName ? `Talk to ${widgetConfig.agentName}!` : "Talk to Michelle!";
+    const agentImage = widgetConfig.agentImage || '/Asset/agent-photo-20251223-161139.png';
+    
+    // Determine widget state class
+    const widgetStateClass = ending ? 'ending' : callState === 'active' ? 'active' : '';
+
+    // Get box shadow based on state
+    const getBoxShadow = () => {
+        const ringThickness = 8;
+        const shadowColor = 'rgba(0, 0, 0, 0.2)';
+        
+        if (ending) {
+            return `0 0 0 ${ringThickness}px #DC2626, 0 0 0 ${ringThickness + 4}px rgba(220, 38, 38, 0.3), 0 6px 25px ${shadowColor}`;
+        }
+        if (callState === 'active') {
+            return `0 0 0 ${ringThickness}px #10B981, 0 0 0 ${ringThickness + 4}px rgba(16, 185, 129, 0.3), 0 6px 25px ${shadowColor}`;
+        }
+        return `0 0 0 ${ringThickness}px #143884, 0 4px 15px ${shadowColor}`;
+    };
+
     return (
         <div ref={widgetRef}>
+            {/* Inject CSS styles for animations */}
+            <style>{widgetStyles}</style>
+            
             {/* Call Modal Window */}
             <ModalWindow visible={visible} setVisible={setVisible} />
 
-            {/* New Horizontal AI Assistant Widget - Correct speech bubble design */}
+            {/* Text Container - "Talk to Michelle!" - positioned above widget */}
             <div
+                className="widget-text"
                 style={{
                     position: 'fixed',
-                    bottom: 32,
-                    right: 32,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'flex-end',
+                    bottom: 'calc(80px + 125px - 140px)', // widget-bottom + widget-size/2 + text-offset-y
+                    right: 'calc(45px + 125px)', // widget-right + widget-size/2
+                    transform: hovered ? 'translate(50%, 50%) scale(1.05)' : 'translate(50%, 50%) scale(1)',
+                    background: '#FFFFFF',
+                    color: '#000000',
+                    border: '6px solid #143884',
+                    padding: '6px 20px',
+                    borderRadius: '35px',
+                    boxShadow: hovered ? '0 6px 25px rgba(0, 0, 0, 0.3)' : '0 4px 15px rgba(0, 0, 0, 0.15)',
+                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+                    fontSize: '32px',
+                    fontWeight: 700,
+                    whiteSpace: 'nowrap',
+                    pointerEvents: 'auto',
                     cursor: 'pointer',
-                    zIndex: 1000,
+                    zIndex: 10000,
+                    opacity: (callState === 'active' || ending) ? 0 : 1,
+                    visibility: (callState === 'active' || ending) ? 'hidden' : 'visible',
+                    transition: 'opacity 0.3s ease, transform 0.3s ease, visibility 0.3s ease, box-shadow 0.3s ease',
+                }}
+                onClick={(e) => {
+                    e.preventDefault();
+                    handleWidgetClick();
+                }}
+                onMouseEnter={() => {
+                    setHovered(true);
+                }}
+                onMouseLeave={() => {
+                    setHovered(false);
+                }}
+            >
+                {textContent}
+            </div>
+
+            {/* Main Widget Container - Circular with agent image */}
+            <div
+                id="voice-widget"
+                className={widgetStateClass}
+                style={{
+                    position: 'fixed',
+                    bottom: '80px',
+                    right: '45px',
+                    width: '250px',
+                    height: '250px',
+                    background: '#FFFFFF',
+                    borderRadius: '50%',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 9999,
+                    transition: 'all 0.3s ease',
+                    overflow: 'hidden',
+                    boxShadow: getBoxShadow(),
+                    animation: ending ? 'endingRingPulse 0.5s ease-in-out 4' : callState === 'active' ? 'activeRingPulse 2s ease-in-out infinite' : 'none',
+                    transform: hovered ? 'scale(1.08)' : 'scale(1)',
                 }}
                 onClick={handleWidgetClick}
-                onMouseEnter={() => setHovered(true)}
-                onMouseLeave={() => setHovered(false)}
+                onMouseEnter={() => {
+                    setHovered(true);
+                }}
+                onMouseLeave={() => {
+                    setHovered(false);
+                }}
             >
-                {/* Main widget container with mic and speech bubble */}
+                {/* Agent Photo/Image */}
                 <div
+                    className="widget-image"
                     style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        marginBottom: 8, // Space between main widget and agent status
+                        width: '100%',
+                        height: '100%',
+                        backgroundImage: `url(${agentImage})`,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                        backgroundRepeat: 'no-repeat',
+                        borderRadius: '50%',
+                        transform: hovered ? 'scale(1.05)' : 'scale(1)',
+                        transformOrigin: 'center',
+                        transition: 'transform 0.3s ease',
                     }}
-                >
-                    {/* Microphone Button - Just the icon, no background */}
-                    <div
-                        style={{
-                            width: 56,
-                            height: 56,
-                            borderRadius: '50%',
-                            background: callState === 'active' 
-                                ? 'transparent' 
-                                : callState === 'offline' 
-                                ? '#6B7280' 
-                                : 'linear-gradient(135deg, #d7c3b4 0%, #bfa897 100%)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            cursor: 'pointer',
-                            transition: 'transform 0.2s ease',
-                            flexShrink: 0,
-                            zIndex: 2, // Above the white background
-                            boxShadow: callState === 'active' ? 'none' : '0 4px 12px rgba(0,0,0,0.15)',
-                        }}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            handleWidgetClick();
-                        }}
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.transform = 'scale(1.05)';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.transform = 'scale(1)';
-                        }}
-                    >
-                        {/* Microphone Icon */}
-                        {callState === 'active' ? (
-                            <img 
-                                src="https://vocodia-maxoderm-multi-widget.pages.dev/Asset/active_call.png"
-                                alt="Active Microphone"
-                                width="59" 
-                                height="59" 
-                                style={{ 
-                                    filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.1))',
-                                    boxShadow: '0 0 20px rgba(20, 174, 92, 0.8)',
-                                    animation: 'pulse-green 2s infinite',
-                                    borderRadius: '50%'
-                                }}
-                            />
-                        ) : callState === 'offline' ? (
-                            <img 
-                                src="https://vocodia-maxoderm-multi-widget.pages.dev/Asset/mute_call.png"
-                                alt="Offline Microphone"
-                                width="59" 
-                                height="59" 
-                                style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.1))' }}
-                            />
-                        ) : (
-                            <img 
-                                src="https://vocodia-maxoderm-multi-widget.pages.dev/Asset/inactive_call.png"
-                                alt="Available Microphone"
-                                width="59" 
-                                height="59" 
-                                style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.1))' }}
-                            />
-                        )}
-                    </div>
-
-                    {/* Speech bubble - White background extending to the right */}
-                    <div
-                        style={{
-                            width: 176,
-                            backgroundColor: '#ffffff',
-                            borderRadius: '20px',
-                            padding: '5px 20px 6px 35px', // More padding on left to account for mic overlap
-                            marginLeft: -28, // Overlap with the mic icon
-                            boxShadow: '0 6px 20px rgba(0,0,0,0.15)',
-                            border: '1px solid #e0e0e0',
-                            animation: 'none',
-                            transition: 'all 0.2s ease',
-                            transform: hovered ? 'translateY(-2px)' : 'translateY(0)',
-                        }}
-                    >
-                        {/* Text Content */}
-                        <div
-                            style={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'flex-start',
-                                justifyContent: 'center',
-                            }}
-                        >
-                            {/* Primary Text */}
-                            <div
-                                style={{
-                                    color: '#159895',
-                                    fontWeight: '600',
-                                    fontSize: '11px',
-                                    textTransform: 'uppercase',
-                                    letterSpacing: '0.3px',
-                                    lineHeight: 1.1,
-                                    marginBottom: 1,
-                                }}
-                            >
-                                {callState === 'offline' ? 'ASSISTANT' : callState === 'active' ? 'TELL ME HOW' : 'TALK TO OUR '}
-                            </div>
-                            {/* Secondary Text */}
-                            <div
-                                style={{
-                                    color: '#159895',
-                                    fontWeight: '600',
-                                    fontSize: '11px',
-                                    textTransform: 'uppercase',
-                                    letterSpacing: '0.3px',
-                                    lineHeight: 1.1,
-                                }}
-                            >
-                                {callState === 'offline' ? 'OFFLINE' : callState === 'active' ? 'I CAN HELP' : 'AI ASSISTANT'}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Agent Status - Outside and below the main widget */}
-                <div
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'flex-end',
-                        gap: 4,
-                        marginRight: 8, // Align with the right edge of the speech bubble
-                        marginTop: -11, // Move status text up closer
-                    }}
-                >
-                    {/* Agent Status Label */}
-                    <div
-                        style={{
-                            color: '#999999',
-                            fontSize: '9px',
-                            fontWeight: '400',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.2px',
-                        }}
-                    >
-                        {callState === 'active' || callState === 'offline' ? 'CALL STATUS:' : 'AGENT STATUS:'}
-                    </div>
-                    
-                    {/* Status Indicator Dot */}
-                    <div
-                        style={{
-                            width: 6,
-                            height: 6,
-                            borderRadius: '50%',
-                            backgroundColor: callState === 'active' 
-                                ? '#EC221F' 
-                                : callState === 'offline' 
-                                ? '#D1D5DB' 
-                                : '#2ecc71',
-                            flexShrink: 0,
-                            animation: callState === 'active' ? 'pulse-red 2s infinite' :  'none',
-                        }}
-                    />
-                    
-                    {/* Status Text */}
-                    <div
-                        style={{
-                            color: '#333333',
-                            fontSize: '10px',
-                            fontWeight: '600',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.2px',
-                        }}
-                    >
-                        {callState === 'offline' ? 'OFFLINE' : callState === 'active' ? 'NOW ASSISTING' : 'AVAILABLE'}
-                    </div>
-                </div>
+                />
             </div>
         </div>
     );

@@ -154,7 +154,7 @@ function ModalWindow(props: ModalWindowProps) {
 
       // Log call tracking
       try {
-        await fetch("https://theconnexus.ai/retell/widgetCalls", {
+        await fetch("https://theconnexus.ai/agent/widgetCalls", {
           method: "POST",
           headers: {
             'Authorization': 'Bearer 1b07e2d1-c19f-44de-a638-303e755e1477',
